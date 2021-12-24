@@ -77,6 +77,78 @@ void RfidAntanna::Load(SensorPtr _sensor, sdf::ElementPtr _sdf) {
     else
         _range = _sdf->Get<double>("range");
 
+    // if range parameter does NOT exist
+    if (!(_sdf->HasElement("optional_distribution"))) {
+        std::cout
+                << "Missing parameter <optional_distribution> in RfidAntenna, default to standard"
+                << std::endl;
+        _optional_distribution = "";
+    }
+    else
+        _optional_distribution = _sdf->Get<std::string>("optional_distribution");
+    
+    // if range parameter does NOT exist
+    if (!(_sdf->HasElement("optional_distribution_params"))) {
+        std::cout
+                << "Missing parameter <optional_distribution_params> in RfidAntenna, default to standard"
+                << std::endl;
+        _optional_distribution_params = "";
+    }
+    else if(!(_optional_distribution == "none"))
+        _optional_distribution_params = _sdf->Get<std::string>("optional_distribution_params");
+        else if(_optional_distribution == "none")
+            _optional_distribution_params = "";
+
+    if(!(_optional_distribution == "none"))
+    {
+        std::string temp = "";
+        for(int i=0; i<_optional_distribution_params.length(); ++i){
+            if(_optional_distribution_params[i]==' '){
+                if(std::regex_match(temp, std::regex("^(-?)(0|([1-9][0-9]*))(\\.[0-9]+)?$")))
+                    _params.push_back(std::stod(temp));
+                else 
+                {
+                    ROS_ERROR("Only doubles sperated by space are supported");
+                    exit(-1);
+                }
+                temp = "";
+            }
+            else{
+                temp.push_back(_optional_distribution_params[i]);
+            }
+            
+        }
+        if(std::regex_match(temp, std::regex("^(-?)(0|([1-9][0-9]*))(\\.[0-9]+)?$")))
+            _params.push_back(std::stod(temp));
+        else 
+        {
+            ROS_ERROR("Only doubles sperated by space are supported");
+            exit(-1);
+        }
+    }
+    
+    if (_optional_distribution == "uniform_real_distribution")
+        _optional_dist1 = std::uniform_real_distribution<double>(_params[0], _params[1]);
+    else if (_optional_distribution == "exponential_distribution")
+        _optional_dist2 = std::exponential_distribution<double>(_params[0]);
+    else if (_optional_distribution == "gamma_distribution")
+        _optional_dist3 = std::gamma_distribution<double>(_params[0], _params[1]);
+    else if (_optional_distribution == "weibull_distribution")
+        _optional_dist4 = std::weibull_distribution<double>(_params[0], _params[1]);
+    else if (_optional_distribution == "normal_distribution")
+        _optional_dist5 = std::normal_distribution<double>(_params[0], _params[1]);
+    else if (_optional_distribution == "lognormal_distribution")
+        _optional_dist6 = std::lognormal_distribution<double>(_params[0], _params[1]);
+    else if (_optional_distribution == "chi_squared_distribution")
+        _optional_dist7 = std::chi_squared_distribution<double>(_params[0]);
+    else if (_optional_distribution == "cauchy_distribution")
+        _optional_dist8 = std::cauchy_distribution<double>(_params[0], _params[1]);
+    else if(!(_optional_distribution == "none"))
+    {
+        ROS_ERROR("Distributoin not supported");
+        exit(-1);
+    }
+
     // if communication_gain parameter does NOT exist
     if (!(_sdf->HasElement("communication_gain"))) {
         std::cout
@@ -109,6 +181,7 @@ void RfidAntanna::Load(SensorPtr _sensor, sdf::ElementPtr _sdf) {
         "\tFrequency: " << _frequency << std::endl <<
         "\tNoise phi (rad): " << _noisephi << std::endl <<
         "\tNoise rssi: " << _noiserssi << std::endl <<
+        "\tOptional distribution: " << _optional_distribution << " with params: " << _optional_distribution_params << std::endl <<
         "\tRange: " << _range << std::endl <<
         "\tCommunication Gain: " << _communication_gain << std::endl <<
         "\tLambda " << _lambda << std::endl;
@@ -120,31 +193,23 @@ void RfidAntanna::Load(SensorPtr _sensor, sdf::ElementPtr _sdf) {
 /////////////////////////////////////////////////
 void RfidAntanna::OnUpdate() {
 
-    int count = 0;
+
     Sensor_V sensors = SensorManager::Instance()->GetSensors();
     for (Sensor_V::iterator iter = sensors.begin(); iter != sensors.end(); ++iter) {
-        if ((*iter)->Type() == "rfidtag") {
-            count++;
-        }
-    }
-
-    if (_number_of_tags != count)    
-    {
-        _number_of_tags = 0;
-        _tags_vector.clear();
-        Sensor_V sensors = SensorManager::Instance()->GetSensors();
-        for (Sensor_V::iterator iter = sensors.begin(); iter != sensors.end(); ++iter) {
-            if ((*iter)->Type() == "rfidtag") {                    
-                RFIDTag *rfidTagPointer = (RFIDTag*) ((*iter).get());
-                std::string delimiter = "::";
-                std::string name = rfidTagPointer->ParentName().substr(0, rfidTagPointer->ParentName().find(delimiter));
+        if ((*iter)->Type() == "rfidtag") {                    
+            RFIDTag *rfidTagPointer = (RFIDTag*) ((*iter).get());
+            std::string delimiter = "::";
+            std::string name = rfidTagPointer->ParentName().substr(0, rfidTagPointer->ParentName().find(delimiter));
+            if(_tags_map.count(name) == 0)
+            {
                 std::cout << "adding tag: " << name 
-                    << " to the antenna: " << _antennaSensor->Name() << std::endl;
-                StoreTag(rfidTagPointer);
+                << " to the antenna: " << _antennaSensor->Name() << std::endl;
+                _tags_map[name] = rfidTagPointer;
+                _number_of_tags++;
+                std::cout << "Number of tags: " << _number_of_tags << std::endl;
             }
         }
-        std::cout << "Number of tags: " << _number_of_tags << std::endl;
-    }
+    } 
 
     double actual_range = _range;
     actual_range = actual_range * abs(1 + _radius_distribution(_generator));
@@ -154,9 +219,9 @@ void RfidAntanna::OnUpdate() {
     ignition::math::Pose3d world_antenna_position = this->_antennaSensor->Pose() 
             + this->_antennaEntity.lock()->WorldPose();
 
-    std::vector<RFIDTag*>::const_iterator ci;
-    for (ci = _tags_vector.begin(); ci != _tags_vector.end(); ci++) {
-        physics::EntityPtr entityTag = _world->EntityByName((*ci)->ParentName());
+    std::map<std::string, RFIDTag*>::iterator it;
+    for (it = _tags_map.begin(); it != _tags_map.end(); it++) {
+        physics::EntityPtr entityTag = _world->EntityByName((it->second)->ParentName());
         if(entityTag == NULL)
             continue;
 
@@ -165,13 +230,33 @@ void RfidAntanna::OnUpdate() {
         if (dist > actual_range)
             continue;
 
-        double phi = remainder(dist * _meterToPhi + _noisephi * _distribution(_generator),
-                        2 * M_PI);
+        double random_number = 0;
+        if (!(_optional_distribution == "none"))
+        {
+            if (_optional_distribution == "uniform_real_distribution")
+                random_number = _optional_dist1(_generator);
+            else if (_optional_distribution == "exponential_distribution")
+                random_number = _optional_dist2(_generator);
+            else if (_optional_distribution == "gamma_distribution")
+                random_number = _optional_dist3(_generator);
+            else if (_optional_distribution == "weibull_distribution")
+                random_number = _optional_dist4(_generator);
+            else if (_optional_distribution == "normal_distribution")
+                random_number = _optional_dist5(_generator);
+            else if (_optional_distribution == "lognormal_distribution")
+                random_number = _optional_dist6(_generator);
+            else if (_optional_distribution == "chi_squared_distribution")
+                random_number = _optional_dist7(_generator);
+            else if (_optional_distribution == "cauchy_distribution")
+                random_number = _optional_dist8(_generator);
+        }
+        double phi = remainder(dist * _meterToPhi + _noisephi * _distribution(_generator) + random_number,
+                        2.0 * M_PI);
         double rssi = round(40 * log10(_communication_gain * (_lambda /
-                        (4 * M_PI * dist)) + (_noiserssi/dist * _distribution(_generator))));
-
+                        (4.0 * M_PI * dist)) + abs(_noiserssi * _distribution(_generator))));
+        
         rfid_sensor::Tag msg;
-        msg.name = (*ci)->ParentName();
+        msg.name = (it->second)->ParentName();
         msg.dist = dist;
         msg.phi = phi;
         msg.rssi = rssi;
@@ -194,9 +279,4 @@ void RfidAntanna::OnUpdate() {
     msgToSend.antennaPose.orientation.z = world_antenna_position.Rot().Z();
 
     _event_pub.publish(msgToSend);
-}
-
-void RfidAntanna::StoreTag(RFIDTag *_tag) {
-    _tags_vector.push_back(_tag);
-    _number_of_tags++;
 }

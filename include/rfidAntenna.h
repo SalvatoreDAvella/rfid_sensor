@@ -17,6 +17,9 @@
 #include <rfid_sensor/Tag.h>
 #include <rfid_sensor/TagArray.h>
 #include <random>
+#include <regex>
+#include <map>
+
 
 namespace gazebo {
 	namespace sensors {
@@ -41,10 +44,6 @@ namespace gazebo {
 				/// tags detected by the reader antenna.
 				virtual void OnUpdate();
 
-				/// \brief Function that append tags within the range sensing area of 
-				/// the reader antenna to the RFIDTag array member.
-				void StoreTag(RFIDTag *_tag);
-
 				/// \brief Pointer to the RFID antenna sensor.
 				RFIDSensorPtr _antennaSensor;
 
@@ -55,7 +54,7 @@ namespace gazebo {
 				/// \brief Parent entity which the sensor is attached to
 				boost::weak_ptr<physics::Link> _antennaEntity;
 
-				std::vector<RFIDTag*> _tags_vector;
+				std::map<std::string, RFIDTag*> _tags_map;
 
 				double _frequency;
 				double _noisephi;
@@ -64,6 +63,9 @@ namespace gazebo {
 				double _meterToPhi;
 				double _range;
 				double _communication_gain;
+				std::string _optional_distribution;
+				std::string _optional_distribution_params;
+				std::vector<double> _params;
 
 				int _number_of_tags;
 								
@@ -71,6 +73,14 @@ namespace gazebo {
 				std::normal_distribution<double> _distribution;
 				std::normal_distribution<double> _radius_distribution;
 
+				std::uniform_real_distribution<double> _optional_dist1;
+				std::exponential_distribution<double> _optional_dist2;
+				std::gamma_distribution<double> _optional_dist3;
+				std::weibull_distribution<double> _optional_dist4;
+				std::normal_distribution<double> _optional_dist5;
+				std::lognormal_distribution<double> _optional_dist6;
+				std::chi_squared_distribution<double> _optional_dist7;
+				std::cauchy_distribution<double> _optional_dist8;
 			protected: 
 				gazebo::physics::WorldPtr _world;
 				ros::NodeHandle _node_handle;
