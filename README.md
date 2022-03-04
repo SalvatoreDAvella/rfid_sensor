@@ -19,7 +19,7 @@ If you use this tool in a research project, please check the [paper](https://doi
   pages={22150-22160},
   publisher={IEEE},
   doi={10.1109/ACCESS.2022.3152199},
-  issn = "2169-3536"
+  issn={2169-3536}
 }
 ```
 
