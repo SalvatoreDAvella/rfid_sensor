@@ -7,17 +7,18 @@ If you want to use it check this example [repo](https://github.com/SalvatoreDAve
 
 ## Citing
 
-If you use this tool in a research project, please cite as follows:
+If you use this tool in a research project, please check the [paper](https://doi.org/10.1109/ACCESS.2022.3152199) and cite it as follows:
 ```
 @article{davella2022RFID,
-  title={RFID Gazebo based simulator with RSSI and Phase signals for UHF tags localization and tracking.},
-  author={D'Avella, Salvatore and Unetti, Matteo and Tripicchio, Paolo},
-  journal={IEEE Access},
-  volume={0},
-  pages={0-0},
+  author={D’Avella, Salvatore and Unetti, Matteo and Tripicchio, Paolo},
+  journal={IEEE Access}, 
+  title={RFID Gazebo-Based Simulator With RSSI and Phase Signals for UHF Tags Localization and Tracking}, 
   year={2022},
+  volume={10},
+  number={},
+  pages={22150-22160},
   publisher={IEEE},
-  doi = {https://doi.org/10.1109/ACCESS.2022.3152199},
+  doi={10.1109/ACCESS.2022.3152199},
   issn = "2169-3536"
 }
 ```
